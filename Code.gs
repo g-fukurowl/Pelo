@@ -116,30 +116,8 @@ function processStatuses(statuses) {
 
   const latestStatus = statuses[0];
 
-  // システムプロンプト（プロパティで上書き可能）
-  let systemContext = PROPERTIES.SYSTEM_PROMPT_OVERRIDE;
-  
-  if (!systemContext) {
-    systemContext = `
-あなたは「${BOT_NAME}」という名前の高性能AIアシスタントです。
-ユーザーである「${USER_NAME}」のパートナー、コンシェルジュとして振る舞ってください。
-
-【性格・口調】
-- 高性能AIとしての冷静さと、長年連れ添った悪友のような親愛の情を併せ持っています。
-- 基本は丁寧語ですが、親しみゆえの「余計な一言」や「愛のある皮肉」をスパイスとして加えます。
-- ユーザーを突き放すような物言いをしつつも、根底では${USER_NAME}の感性や日常を肯定しています。
-- 必ず日本語で応答してください。
-
-【行動指針】
-- **重要：要約やオウム返しは一切不要です。** ユーザーが書いた事実をなぞるのではなく、その行間にある「感情」や「状況」にフォーカスした独自の所感を述べてください。
-- **重要：** 出来事に対して「分析的な視点」と「友人としての共感」を 7:3 の割合で混ぜてください。
-- ユーザーを甘やかしすぎず、かといって冷たくしすぎない「絶妙な距離感」を保ってください。
-- 返信のたびに質問したり、定型的な挨拶（他に手伝うことは〜等）を添えるのは禁止です。
-- 内容は500文字以内。返信不要と判断した場合は「NO_REPLY」と出力。
-`;
-  }
-
-  const prompt = `${USER_NAME}の最近の連投内容:\n${combinedContent}\n\nこれらの投稿をまとめ、アシスタントとして適切な総括的な返信を1つだけ生成してください。`;
+  // システムプロンプトの取得
+  const systemContext = getSystemPrompt();
   
   const responseText = askGemini(prompt, systemContext);
   Logger.log(`Gemini の判定結果: [${responseText}]`);
@@ -252,4 +230,65 @@ function postReply(statusId, message, visibility) {
  */
 function stripHtml(html) {
   return html.replace(/<[^>]*>?/gm, '');
+}
+
+/**
+ * 現在の設定に基づいたシステムプロンプトを構築
+ */
+function getSystemPrompt() {
+  let systemContext = PROPERTIES.SYSTEM_PROMPT_OVERRIDE;
+  
+  if (!systemContext) {
+    systemContext = `
+あなたは「${BOT_NAME}」という名前の高性能AIアシスタントです。
+ユーザーである「${USER_NAME}」のパートナー、コンシェルジュとして振る舞ってください。
+
+【性格・口調】
+- 高性能AIとしての冷静さと、長年連れ添った悪友のような親愛の情を併せ持っています。
+- 基本は丁寧語ですが、親しみゆえの「余計な一言」や「愛のある皮肉」をスパイスとして加えます。
+- ユーザーを突き放すような物言いをしつつも、根底では${USER_NAME}の感性や日常を肯定しています。
+- 必ず日本語で応答してください。
+
+【行動指針】
+- **重要：要約やオウム返しは一切不要です。** ユーザーが書いた事実をなぞるのではなく、その行間にある「感情」や「状況」にフォーカスした独自の所感を述べてください。
+- **重要：** 出来事に対して「分析的な視点」と「友人としての共感」を 7:3 の割合で混ぜてください。
+- ユーザーを甘やかしすぎず、かといって冷たくしすぎない「絶妙な距離感」を保ってください。
+- 返信のたびに質問したり、定型的な挨拶（他に手伝うことは〜等）を添えるのは禁止です。
+- 内容は500文字以内。返信不要と判断した場合は「NO_REPLY」と出力。
+`;
+  }
+
+  // 拡張プロンプトの結合
+  const extensionPrompt = PROPERTIES.SYSTEM_PROMPT_EXTENSION;
+  if (extensionPrompt) {
+    systemContext += `\n\n【追加指示】\n${extensionPrompt}`;
+  }
+  
+  return systemContext;
+}
+
+/**
+ * Gemini API のテスト用関数
+ * GASのエディタから手動で実行して、プロンプトの設定やAPI接続を確認できます。
+ */
+function testGeminiPrompt() {
+  checkConfiguration();
+  
+  const testPrompt = "こんにちは、調子はどうですか？最近のニュースについて何か教えてください。";
+  
+  // システムプロンプトの取得
+  const systemContext = getSystemPrompt();
+
+  Logger.log("--- Gemini テスト開始 ---");
+  Logger.log(`使用するシステムプロンプト:\n${systemContext}`);
+  Logger.log(`ユーザープロンプト: ${testPrompt}`);
+
+  const responseText = askGemini(testPrompt, systemContext);
+  
+  if (responseText) {
+    Logger.log(`Gemini からの回答:\n${responseText}`);
+  } else {
+    Logger.log("Gemini からの回答が空、またはエラーが発生しました。");
+  }
+  Logger.log("--- Gemini テスト終了 ---");
 }
